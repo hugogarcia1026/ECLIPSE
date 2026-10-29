@@ -1,0 +1,20 @@
+{
+  "name": "eclipse-ecos-dos-colossos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ECLIPSE: ECOS DOS COLOSSOS - jogo 3D (Fase 1: projeto minimo executavel)",
+  "type": "module",
+  "engines": { "node": ">=20.19" },
+  "scripts": {
+    "dev": "vite client --open",
+    "build": "vite build client --outDir ../dist --emptyOutDir",
+    "preview": "vite preview client --outDir ../dist",
+    "test": "node tests/phase1.test.js"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^9.32.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.5"
+  }
+}
