@@ -1,3 +1,4 @@
+
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { ImageProcessingConfiguration } from "@babylonjs/core/Materials/imageProcessingConfiguration.js";
@@ -7,11 +8,15 @@ import { CameraController } from "./CameraController.js";
 import { Player } from "./Player.js";
 import { Colossus } from "./Colossus.js";
 import { CombatSystem } from "./CombatSystem.js";
+import { WeaponSystem } from "./WeaponSystem.js";
+import { DodgeSystem } from "./DodgeSystem.js";
 
 export class Game {
   constructor(canvas, engine = null) {
     this.canvas = canvas;
-    this.engine = engine ?? new Engine(canvas, true, { stencil: true });
+
+    this.engine =
+      engine ?? new Engine(canvas, true, { stencil: true });
 
     this.scene = new Scene(this.engine);
 
@@ -25,6 +30,13 @@ export class Game {
     this.player = new Player(
       this.scene,
       this.world.alturaEm
+    );
+
+    this.dodgeSystem = new DodgeSystem(this.player);
+
+    this.weaponSystem = new WeaponSystem(
+      this.scene,
+      this.player
     );
 
     this.colossus = new Colossus(
@@ -49,8 +61,7 @@ export class Game {
     }
 
     this.cameraController.atualizar(
-      this.player.root.position,
-      1
+      this.player.root.position
     );
   }
 
@@ -77,11 +88,15 @@ export class Game {
       if (this.player.vida > 0) {
         this.player.atualizar(
           delta,
-          this.cameraController.camera.alpha
+          this.cameraController.yaw
         );
+
+        this.dodgeSystem.atualizar(delta);
+
       }
 
       this.colossus.atualizar(delta, this.player);
+
       this.combat.atualizar(delta);
 
       this.cameraController.atualizar(
@@ -106,6 +121,9 @@ export class Game {
     this.engine.stopRenderLoop();
 
     this.combat.dispose();
+    this.dodgeSystem.dispose();
+    this.weaponSystem.dispose();
+
     this.colossus.dispose();
     this.player.dispose();
     this.cameraController.dispose();
@@ -113,4 +131,5 @@ export class Game {
     this.scene.dispose();
     this.engine.dispose();
   }
+
 }

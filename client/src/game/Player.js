@@ -1,4 +1,3 @@
-
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
@@ -10,7 +9,7 @@ export class Player {
         this.scene = scene;
         this.alturaEm = alturaEm;
 
-        this.velocidade = 8;
+        this.velocidade = 10;
         this.velocidadeCorrida = 14;
         this.velocidadeVertical = 0;
         this.forcaPulo = 8;
@@ -18,11 +17,20 @@ export class Player {
 
         this.teclas = {};
         this.noChao = true;
-        this.vidaMaxima = 100;
-        this.vida = 100;
+
+        this.vidaMaxima = 150;
+        this.vida = this.vidaMaxima;
         this.invulnerabilidade = 0;
+
         this.tempoAnimacao = 0;
         this.intensidadeAnimacao = 0;
+
+        // Sistema de animação de ataque.
+        this.atacando = false;
+        this.tempoAtaque = 0;
+        this.duracaoAnimacaoAtaque = 0.42;
+        this.anguloAtaqueBraco = 0;
+        this.anguloAtaqueTronco = 0;
 
         this.root = new TransformNode("jogador", scene);
         this.root.position = new Vector3(0, alturaEm(0, 0), 0);
@@ -57,6 +65,7 @@ export class Player {
             mesh.position.set(x, y, z);
             mesh.material = material;
             mesh.parent = this.root;
+
             return mesh;
         };
 
@@ -70,16 +79,22 @@ export class Player {
             mesh.position.set(x, y, z);
             mesh.material = material;
             mesh.parent = this.root;
+
             return mesh;
         };
 
-        // Corpo
+        // Corpo.
         this.corpo = cilindro(
-            "corpoJogador", 1.15, 0.65,
-            0, 1.15, 0, this.materialCorpo
+            "corpoJogador",
+            1.15,
+            0.65,
+            0,
+            1.15,
+            0,
+            this.materialCorpo
         );
 
-        // Armadura
+        // Armadura do peito.
         const peito = MeshBuilder.CreateBox(
             "armaduraPeito",
             { width: 0.58, height: 0.55, depth: 0.18 },
@@ -90,39 +105,98 @@ export class Player {
         peito.material = this.materialArmadura;
         peito.parent = this.root;
 
-        // Cabeça
+        // Cabeça.
         this.cabeca = esfera(
-            "cabecaJogador", 0.48,
-            0, 2, 0, this.materialPele
+            "cabecaJogador",
+            0.48,
+            0,
+            2,
+            0,
+            this.materialPele
         );
 
-        // Ombros
+        // Ombros.
         esfera("ombroEsquerdo", 0.34, -0.48, 1.55, 0, this.materialArmadura);
         esfera("ombroDireito", 0.34, 0.48, 1.55, 0, this.materialArmadura);
 
-        // Braços
-        this.bracoEsquerdo = cilindro(
-            "bracoEsquerdo", 0.85, 0.23,
-            -0.52, 1.05, 0, this.materialCorpo
+        // Articulações dos braços.
+        this.pivoBracoEsquerdo = new TransformNode(
+            "pivoBracoEsquerdo",
+            this.scene
         );
 
-        this.bracoDireito = cilindro(
-            "bracoDireito", 0.85, 0.23,
-            0.52, 1.05, 0, this.materialCorpo
+        this.pivoBracoEsquerdo.parent = this.root;
+        this.pivoBracoEsquerdo.position.set(-0.52, 1.55, 0);
+
+        this.pivoBracoDireito = new TransformNode(
+            "pivoBracoDireito",
+            this.scene
         );
 
-        // Pernas
+        this.pivoBracoDireito.parent = this.root;
+        this.pivoBracoDireito.position.set(0.52, 1.55, 0);
+
+        // Braço esquerdo.
+        this.bracoEsquerdo = MeshBuilder.CreateCylinder(
+            "bracoEsquerdo",
+            { height: 0.85, diameter: 0.23, tessellation: 12 },
+            this.scene
+        );
+
+        this.bracoEsquerdo.position.y = -0.425;
+        this.bracoEsquerdo.material = this.materialCorpo;
+        this.bracoEsquerdo.parent = this.pivoBracoEsquerdo;
+
+        // Braço direito.
+        this.bracoDireito = MeshBuilder.CreateCylinder(
+            "bracoDireito",
+            { height: 0.85, diameter: 0.23, tessellation: 12 },
+            this.scene
+        );
+
+        this.bracoDireito.position.y = -0.425;
+        this.bracoDireito.material = this.materialCorpo;
+        this.bracoDireito.parent = this.pivoBracoDireito;
+
+        // Mãos: pontos de conexão para futuras armas.
+        this.maoEsquerda = new TransformNode(
+            "maoEsquerda",
+            this.scene
+        );
+
+        this.maoEsquerda.parent = this.pivoBracoEsquerdo;
+        this.maoEsquerda.position.set(0, -0.85, 0);
+
+        this.maoDireita = new TransformNode(
+            "maoDireita",
+            this.scene
+        );
+
+        this.maoDireita.parent = this.pivoBracoDireito;
+        this.maoDireita.position.set(0, -0.85, 0);
+
+        // Pernas.
         this.pernaEsquerda = cilindro(
-            "pernaEsquerda", 0.85, 0.29,
-            -0.2, 0.42, 0, this.materialCorpo
+            "pernaEsquerda",
+            0.85,
+            0.29,
+            -0.2,
+            0.42,
+            0,
+            this.materialCorpo
         );
 
         this.pernaDireita = cilindro(
-            "pernaDireita", 0.85, 0.29,
-            0.2, 0.42, 0, this.materialCorpo
+            "pernaDireita",
+            0.85,
+            0.29,
+            0.2,
+            0.42,
+            0,
+            this.materialCorpo
         );
 
-        // Detalhe da armadura
+        // Detalhe da armadura.
         const simbolo = MeshBuilder.CreateBox(
             "simboloArmadura",
             { width: 0.13, height: 0.28, depth: 0.04 },
@@ -160,6 +234,59 @@ export class Player {
         window.addEventListener("blur", this._aoPerderFoco);
     }
 
+    // Chamado pelo sistema de combate.
+    iniciarAtaque() {
+        if (this.vida <= 0 || this.atacando) return false;
+
+        this.atacando = true;
+        this.tempoAtaque = 0;
+
+        return true;
+    }
+
+    _atualizarAnimacaoAtaque(delta) {
+        if (!this.atacando) {
+            this.anguloAtaqueBraco = 0;
+            this.anguloAtaqueTronco = 0;
+            return;
+        }
+
+        this.tempoAtaque += delta;
+
+        const progresso = Math.min(
+            1,
+            this.tempoAtaque / this.duracaoAnimacaoAtaque
+        );
+
+        // Preparação, golpe e recuperação.
+        if (progresso < 0.3) {
+            const t = progresso / 0.3;
+            const suavizado = t * t * (3 - 2 * t);
+
+            this.anguloAtaqueBraco = -0.9 * suavizado;
+            this.anguloAtaqueTronco = -0.12 * suavizado;
+        } else if (progresso < 0.58) {
+            const t = (progresso - 0.3) / 0.28;
+            const suavizado = t * t * (3 - 2 * t);
+
+            this.anguloAtaqueBraco = -0.9 + 2.35 * suavizado;
+            this.anguloAtaqueTronco = -0.12 + 0.2 * suavizado;
+        } else {
+            const t = (progresso - 0.58) / 0.42;
+            const suavizado = t * t * (3 - 2 * t);
+
+            this.anguloAtaqueBraco = 1.45 * (1 - suavizado);
+            this.anguloAtaqueTronco = 0.08 * (1 - suavizado);
+        }
+
+        if (progresso >= 1) {
+            this.atacando = false;
+            this.tempoAtaque = 0;
+            this.anguloAtaqueBraco = 0;
+            this.anguloAtaqueTronco = 0;
+        }
+    }
+
     _animar(delta, correndo) {
         const movendo =
             this.teclas["w"] ||
@@ -181,28 +308,36 @@ export class Player {
         const movimento = Math.sin(this.tempoAnimacao);
         const oscilacao = movimento * intensidade;
 
-        // Pernas alternam durante a caminhada.
-        this.pernaEsquerda.rotation.x = oscilacao * 0.65;
-        this.pernaDireita.rotation.x = -oscilacao * 0.65;
-
-        // Braços fazem movimento contrário às pernas.
-        this.bracoEsquerdo.rotation.x = -oscilacao * 0.55;
-        this.bracoDireito.rotation.x = oscilacao * 0.55;
-
-        // Corrida possui movimentos mais intensos.
         const intensidadeCorrida = correndo ? 1.4 : 1;
 
-        this.pernaEsquerda.rotation.x *= intensidadeCorrida;
-        this.pernaDireita.rotation.x *= intensidadeCorrida;
-        this.bracoEsquerdo.rotation.x *= intensidadeCorrida;
-        this.bracoDireito.rotation.x *= intensidadeCorrida;
+        // Pernas.
+        this.pernaEsquerda.rotation.x =
+            oscilacao * 0.65 * intensidadeCorrida;
+
+        this.pernaDireita.rotation.x =
+            -oscilacao * 0.65 * intensidadeCorrida;
+
+        // Braço esquerdo acompanha a caminhada.
+        this.pivoBracoEsquerdo.rotation.x =
+            -oscilacao * 0.55 * intensidadeCorrida;
+
+        // Braço direito combina caminhada e ataque.
+        const movimentoBracoDireito =
+            oscilacao * 0.55 * intensidadeCorrida;
+
+        this.pivoBracoDireito.rotation.x =
+            movimentoBracoDireito + this.anguloAtaqueBraco;
+
+        // Pequena rotação do tronco durante o golpe.
+        this.corpo.rotation.x = this.anguloAtaqueTronco;
 
         // Corpo acompanha os passos.
         this.corpo.position.y =
             1.15 + Math.abs(movimento) * 0.06 * intensidade;
 
         // Cabeça com movimento sutil.
-        this.cabeca.rotation.x = Math.sin(this.tempoAnimacao * 0.5) * 0.025 * intensidade;
+        this.cabeca.rotation.x =
+            Math.sin(this.tempoAnimacao * 0.5) * 0.025 * intensidade;
     }
 
     atualizar(delta, anguloCamera) {
@@ -241,10 +376,17 @@ export class Player {
             this.root.rotation.y = Math.atan2(direcao.x, direcao.z);
         }
 
-        this.root.position.x = Math.max(-295, Math.min(295, this.root.position.x));
-        this.root.position.z = Math.max(-295, Math.min(295, this.root.position.z));
+        this.root.position.x = Math.max(
+            -295,
+            Math.min(295, this.root.position.x)
+        );
 
-        // Pulo
+        this.root.position.z = Math.max(
+            -295,
+            Math.min(295, this.root.position.z)
+        );
+
+        // Pulo.
         if (this.teclas[" "] && this.noChao) {
             this.velocidadeVertical = this.forcaPulo;
             this.noChao = false;
@@ -264,6 +406,7 @@ export class Player {
             this.noChao = true;
         }
 
+        this._atualizarAnimacaoAtaque(delta);
         this._animar(delta, correndo);
 
         this.invulnerabilidade = Math.max(

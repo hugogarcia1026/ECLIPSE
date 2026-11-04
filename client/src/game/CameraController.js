@@ -1,8 +1,5 @@
 
-import "@babylonjs/core/Cameras/Inputs/arcRotateCameraPointersInput.js";
-import "@babylonjs/core/Cameras/Inputs/arcRotateCameraMouseWheelInput.js";
-
-import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera.js";
+import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 export class CameraController {
@@ -10,124 +7,190 @@ export class CameraController {
     this.scene = scene;
     this.canvas = canvas;
 
-    this.camera = new ArcRotateCamera(
-      "cameraTerceiraPessoa",
-      -Math.PI / 2,
-      1.15,
-      14,
-      Vector3.Zero(),
-      scene
-    );
+    this.yaw = -Math.PI / 2;
+    this.pitch = 0.25;
 
-    this.camera.lowerRadiusLimit = 4;
-    this.camera.upperRadiusLimit = 35;
-    this.camera.lowerBetaLimit = 0.3;
-    this.camera.upperBetaLimit = 1.5;
+    this.pitchMin = -0.35;
+    this.pitchMax = 1.0;
 
-    this.camera.wheelPrecision = 4;
-    this.camera.minZ = 0.1;
-    this.camera.maxZ = 1500;
+    this.sensibilidadeMouse = 0.005;
 
-    this.camera.inertia = 0;
-    this.camera.panningSensibility = 0;
-
-    this.camera.attachControl(canvas, true);
+    this.arrastando = false;
+    this.ultimoMouseX = 0;
+    this.ultimoMouseY = 0;
 
     this.modos = [
       {
         nome: "TERCEIRA PESSOA",
-        raio: 14,
-        beta: 1.15,
-        altura: 2.2,
-        alpha: -Math.PI / 2
+        distancia: 14,
+        alturaCamera: 5.8,
+        alturaAlvo: 2.2
       },
       {
         nome: "VISÃO PRÓXIMA",
-        raio: 7,
-        beta: 1.25,
-        altura: 2.5,
-        alpha: -Math.PI / 2
+        distancia: 7,
+        alturaCamera: 4.5,
+        alturaAlvo: 2.5
       },
       {
         nome: "VISÃO ELEVADA",
-        raio: 19,
-        beta: 0.8,
-        altura: 2,
-        alpha: -Math.PI / 2
+        distancia: 19,
+        alturaCamera: 14,
+        alturaAlvo: 2
       }
     ];
 
     this.modoAtual = 0;
+    this.zoom = this.modos[0].distancia;
+
+    this.camera = new UniversalCamera(
+      "cameraEclipse",
+      new Vector3(0, 6, -14),
+      scene
+    );
+
+    this.camera.minZ = 0.1;
+    this.camera.maxZ = 1500;
+    this.camera.fov = 0.8;
+    this.camera.inertia = 0;
+    this.camera.inputs.clear();
+
+    scene.activeCamera = this.camera;
+
+    this._configurarControles();
+  }
+
+  _configurarControles() {
+    this._pointerDown = (event) => {
+      if (event.button !== 2) return;
+
+      this.arrastando = true;
+
+      this.ultimoMouseX = event.clientX;
+      this.ultimoMouseY = event.clientY;
+
+      try {
+        this.canvas.setPointerCapture(event.pointerId);
+      } catch (erro) {
+        // Continua funcionando mesmo se a captura não estiver disponível.
+      }
+    };
+
+    this._pointerMove = (event) => {
+      if (!this.arrastando) return;
+
+      const deltaX = event.clientX - this.ultimoMouseX;
+      const deltaY = event.clientY - this.ultimoMouseY;
+
+      this.yaw += deltaX * this.sensibilidadeMouse;
+      this.pitch -= deltaY * this.sensibilidadeMouse;
+
+      this.pitch = Math.max(
+        this.pitchMin,
+        Math.min(this.pitchMax, this.pitch)
+      );
+
+      this.ultimoMouseX = event.clientX;
+      this.ultimoMouseY = event.clientY;
+    };
+
+    this._pointerUp = (event) => {
+      if (event.button !== 2) return;
+
+      this.arrastando = false;
+
+      try {
+        if (this.canvas.hasPointerCapture(event.pointerId)) {
+          this.canvas.releasePointerCapture(event.pointerId);
+        }
+      } catch (erro) {
+        // Não interrompe o jogo.
+      }
+    };
+
+    this._contextMenu = (event) => {
+      event.preventDefault();
+    };
+
+    this._mouseWheel = (event) => {
+      event.preventDefault();
+
+      this.zoom += event.deltaY * 0.01;
+
+      const modo = this.modos[this.modoAtual];
+
+      this.zoom = Math.max(
+        3,
+        Math.min(modo.distancia + 12, this.zoom)
+      );
+    };
 
     this._tecla = (event) => {
       if (event.code !== "KeyV" || event.repeat) return;
 
-      const elemento = event.target;
+      this.modoAtual =
+        (this.modoAtual + 1) % this.modos.length;
 
-      if (
-        elemento instanceof HTMLInputElement ||
-        elemento instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-
-      this.alternarModo();
+      this.zoom = this.modos[this.modoAtual].distancia;
     };
 
-    if (typeof window !== "undefined") {
-      window.addEventListener("keydown", this._tecla);
-    }
+    this.canvas.addEventListener("pointerdown", this._pointerDown);
+    this.canvas.addEventListener("pointermove", this._pointerMove);
+    this.canvas.addEventListener("pointerup", this._pointerUp);
+    this.canvas.addEventListener("pointercancel", this._pointerUp);
 
-    this._aplicarModo();
+    this.canvas.addEventListener("contextmenu", this._contextMenu);
+    this.canvas.addEventListener("wheel", this._mouseWheel, {
+      passive: false
+    });
+
+    window.addEventListener("keydown", this._tecla);
   }
 
-  _aplicarModo() {
+  atualizar(posicaoJogador) {
     const modo = this.modos[this.modoAtual];
+    const distancia = this.zoom;
 
-    this.camera.radius = modo.raio;
-    this.camera.beta = modo.beta;
-    this.camera.alpha = modo.alpha;
+    const alturaAlvo = posicaoJogador.y + modo.alturaAlvo;
 
-    this.camera.inertialAlphaOffset = 0;
-    this.camera.inertialBetaOffset = 0;
-    this.camera.inertialRadiusOffset = 0;
-    this.camera.inertialPanningX = 0;
-    this.camera.inertialPanningY = 0;
-  }
+    const horizontal = Math.cos(this.pitch) * distancia;
+    const vertical = Math.sin(this.pitch) * distancia;
 
-  alternarModo() {
-    this.modoAtual = (this.modoAtual + 1) % this.modos.length;
+    const x =
+      posicaoJogador.x +
+      Math.cos(this.yaw) * horizontal;
 
-    this._aplicarModo();
+    const z =
+      posicaoJogador.z +
+      Math.sin(this.yaw) * horizontal;
 
-    console.log(
-      "Modo de câmera:",
-      this.modos[this.modoAtual].nome
-    );
-  }
+    const y =
+      alturaAlvo +
+      modo.alturaCamera -
+      vertical;
 
-  atualizar(posicao) {
-    const modo = this.modos[this.modoAtual];
+    this.camera.position.set(x, y, z);
 
     const alvo = new Vector3(
-      posicao.x,
-      posicao.y + modo.altura,
-      posicao.z
+      posicaoJogador.x,
+      alturaAlvo,
+      posicaoJogador.z
     );
 
-    // Atualização direta: sem atraso ou interpolação.
     this.camera.setTarget(alvo);
   }
 
-  seguir(posicao) {
-    this.atualizar(posicao);
-  }
-
   dispose() {
-    if (typeof window !== "undefined") {
-      window.removeEventListener("keydown", this._tecla);
-    }
+    this.canvas.removeEventListener("pointerdown", this._pointerDown);
+    this.canvas.removeEventListener("pointermove", this._pointerMove);
+    this.canvas.removeEventListener("pointerup", this._pointerUp);
+    this.canvas.removeEventListener("pointercancel", this._pointerUp);
 
-    this.camera.detachControl();
+    this.canvas.removeEventListener("contextmenu", this._contextMenu);
+    this.canvas.removeEventListener("wheel", this._mouseWheel);
+
+    window.removeEventListener("keydown", this._tecla);
+
+    this.camera.dispose();
   }
 }
