@@ -1,11 +1,11 @@
 import "@babylonjs/core/Meshes/Builders/groundBuilder.js";
+import "@babylonjs/core/Materials/material.detailMapConfiguration.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
-import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { fbm, suavizar, misturar } from "./Ruido.js";
-import { criarTexturaRuido } from "./Texturas.js";
+import { textura } from "./Texturas.js";
+import { criarMaterial, copiaTextura } from "./Materiais.js";
 
 export const TAMANHO_MUNDO = 600;
 export const NIVEL_AGUA = -1.2;
@@ -36,10 +36,13 @@ function cor(base, destino, t) {
   ];
 }
 
+// Cores em sRGB convertidas para linear (o PBR trabalha em linear).
+const lin = (c) => [Math.pow(c[0], 2.2), Math.pow(c[1], 2.2), Math.pow(c[2], 2.2)];
+
 export function criarTerreno(scene) {
   const terreno = MeshBuilder.CreateGround(
     "terreno",
-    { width: TAMANHO_MUNDO, height: TAMANHO_MUNDO, subdivisions: 220, updatable: true },
+    { width: TAMANHO_MUNDO, height: TAMANHO_MUNDO, subdivisions: 260, updatable: true },
     scene
   );
 
@@ -63,26 +66,44 @@ export function criarTerreno(scene) {
     const variacao = fbm(x * 0.05, z * 0.05, 3);
     const dc = Math.hypot(x, z);
 
-    let c = [0.18 + 0.14 * variacao, 0.29 + 0.15 * variacao, 0.1 + 0.07 * variacao]; // grama
-    c = cor(c, [0.36, 0.3, 0.22], (1 - suavizar(30, 75, dc)) * 0.65); // terra batida nas ruinas
-    c = cor(c, [0.3, 0.27, 0.2], suavizar(0.5, 0.9, fbm(x * 0.03 + 9, z * 0.03, 3)) * 0.5); // manchas de terra
-    c = cor(c, [0.57, 0.52, 0.4], 1 - suavizar(NIVEL_AGUA - 0.5, NIVEL_AGUA + 1.8, y)); // areia na margem
-    const rocha = Math.max(suavizar(0.16, 0.36, inclinacao), suavizar(34, 60, y));
-    c = cor(c, [0.46 + 0.06 * variacao, 0.44 + 0.06 * variacao, 0.41 + 0.05 * variacao], rocha);
+    const secura = fbm(x * 0.009 - 11, z * 0.009 + 4, 3);
 
-    cores.set([c[0], c[1], c[2], 1], v * 4);
+    // Grama: verde-oliva, mais seca (dourada) em algumas regiões.
+    let c = [0.3 + 0.12 * variacao, 0.4 + 0.12 * variacao, 0.17 + 0.06 * variacao];
+    c = cor(c, [0.52, 0.47, 0.25], suavizar(0.45, 0.75, secura) * 0.7);
+    c = cor(c, [0.5, 0.42, 0.32], (1 - suavizar(30, 75, dc)) * 0.7); // terra batida nas ruinas
+    c = cor(c, [0.44, 0.38, 0.29], suavizar(0.5, 0.9, fbm(x * 0.03 + 9, z * 0.03, 3)) * 0.5); // manchas de terra
+    c = cor(c, [0.72, 0.65, 0.5], 1 - suavizar(NIVEL_AGUA - 0.5, NIVEL_AGUA + 1.8, y)); // areia na margem
+    c = cor(c, [0.34, 0.31, 0.25], 1 - suavizar(NIVEL_AGUA - 3, NIVEL_AGUA - 0.4, y)); // fundo do lago
+    const rocha = Math.max(suavizar(0.16, 0.36, inclinacao), suavizar(34, 60, y));
+    c = cor(c, [0.56 + 0.08 * variacao, 0.53 + 0.07 * variacao, 0.49 + 0.06 * variacao], rocha);
+    // Neve leve nos picos mais altos.
+    c = cor(c, [0.86, 0.86, 0.9], suavizar(58, 72, y) * (1 - suavizar(0.3, 0.55, inclinacao)));
+
+    const l = lin(c);
+    cores.set([l[0], l[1], l[2], 1], v * 4);
   }
   terreno.setVerticesData(VertexBuffer.ColorKind, cores);
 
-  const material = new StandardMaterial("matTerreno", scene);
-  material.diffuseColor = new Color3(1, 1, 1);
-  material.specularColor = new Color3(0, 0, 0);
-  const detalhe = criarTexturaRuido(scene, { tamanho: 256, semente: 11, base: 0.78, variacao: 0.22 });
-  detalhe.uScale = 140;
-  detalhe.vScale = 140;
-  material.diffuseTexture = detalhe;
+  const material = criarMaterial(scene, "matTerreno", {
+    cor: [1, 1, 1],
+    rugosidade: 0.92,
+    conjunto: "terreno",
+    escala: 110,
+    nivelNormal: 0.9
+  });
+
+  // Segunda escala de detalhe: quebra a repetição de perto.
+  const detalhe = copiaTextura(textura(scene, "detalheTerreno"), 420);
+  material.detailMap.texture = detalhe;
+  material.detailMap.isEnabled = true;
+  material.detailMap.diffuseBlendLevel = 0.35;
+  material.detailMap.bumpLevel = 0.6;
+  material.detailMap.roughnessBlendLevel = 0.3;
+
   terreno.material = material;
   terreno.receiveShadows = true;
+  terreno.isPickable = false;
   terreno.freezeWorldMatrix();
   return terreno;
 }

@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ECLIPSE: ECOS DOS COLOSSOS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;600&display=swap"
+    />
     <link rel="stylesheet" href="./styles/main.css" />
   </head>
   <body>
@@ -12,10 +18,22 @@
     <div id="overlay">
       <h1>ECLIPSE</h1>
       <p class="subtitulo">Ecos dos Colossos</p>
-      <p class="fase">Fase 1 &mdash; cena com visuais procedurais</p>
-      <p class="dica">Arraste com o mouse para girar a c&acirc;mera &middot; Roda do mouse para aproximar/afastar</p>
+      <ul class="controles" aria-label="Controles">
+        <li><kbd>W A S D</kbd> mover <kbd>Shift</kbd> correr <kbd>Espaço</kbd> pular</li>
+        <li><kbd>Clique</kbd> atacar <kbd>Ctrl</kbd> esquivar <kbd>1 2 3</kbd> armas</li>
+        <li><kbd>Botão direito</kbd> girar câmera <kbd>Roda</kbd> zoom <kbd>V</kbd> câmera</li>
+        <li><kbd>G</kbd> qualidade gráfica</li>
+      </ul>
     </div>
 
+    <div id="carregando" role="status" aria-live="polite">
+      <div class="logo">ECLIPSE</div>
+      <div class="sublogo">Ecos dos Colossos</div>
+      <div class="barra"><span></span></div>
+      <div class="texto">Despertando o colosso&hellip;</div>
+    </div>
+
+    <div id="aviso" aria-live="polite"></div>
     <div id="erro" hidden></div>
     <div id="fps">-- FPS</div>
 
