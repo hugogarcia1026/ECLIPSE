@@ -38,7 +38,9 @@ export class DodgeSystem {
       this.solicitada = true;
     };
 
-    window.addEventListener("keydown", this._tecla);
+    if (typeof window !== "undefined") {
+      window.addEventListener("keydown", this._tecla);
+    }
   }
 
   _iniciar() {
@@ -69,7 +71,10 @@ export class DodgeSystem {
   }
 
   atualizar(delta) {
-    this.cooldown = Math.max(0, this.cooldown - delta);
+    this.cooldown = Math.max(
+      0,
+      this.cooldown - delta
+    );
 
     if (this.solicitada) {
       this.solicitada = false;
@@ -81,11 +86,52 @@ export class DodgeSystem {
 
     if (this.tempoRestante <= 0) return;
 
-    const passo = Math.min(delta, this.tempoRestante);
-
-    this.jogador.root.position.addInPlace(
-      this.direcao.scale(this.velocidade * passo)
+    const passo = Math.min(
+      delta,
+      this.tempoRestante
     );
+
+    const deslocamento = this.direcao.scale(
+      this.velocidade * passo
+    );
+
+    if (this.jogador.collisionSystem) {
+      this.jogador.collisionSystem.deslocar(
+        this.jogador.root,
+        deslocamento,
+        this.jogador.raioColisao ?? 0.5
+      );
+    } else {
+      this.jogador.root.position.addInPlace(
+        deslocamento
+      );
+    }
+
+    // Acompanha o chão durante a esquiva: sobe e desce degraus
+    // pequenos, mas cai normalmente (pela gravidade do Player)
+    // ao sair de um desnível maior, em vez de teletransportar.
+    const posicao = this.jogador.root.position;
+    const alturaChao = this.jogador.alturaEm(posicao.x, posicao.z);
+
+    const alturaDegrau =
+      this.jogador.collisionSystem?.alturaMaximaDegrau ?? 0.95;
+
+    const diferenca = alturaChao - posicao.y;
+
+    if (diferenca >= 0) {
+      // Entrou em um degrau mais alto (já liberado pela colisão)
+      // ou está no mesmo nível: nunca fica abaixo do piso.
+      posicao.y = alturaChao;
+    } else if (
+      this.jogador.noChao &&
+      -diferenca <= alturaDegrau
+    ) {
+      // Degrau ou rampa para baixo: continua no chão.
+      posicao.y = alturaChao;
+    } else if (this.jogador.noChao) {
+      // Saiu de um barranco: começa a cair.
+      this.jogador.noChao = false;
+    }
 
     this.tempoRestante -= passo;
 
@@ -95,6 +141,11 @@ export class DodgeSystem {
   }
 
   dispose() {
-    window.removeEventListener("keydown", this._tecla);
+    if (typeof window !== "undefined") {
+      window.removeEventListener(
+        "keydown",
+        this._tecla
+      );
+    }
   }
 }

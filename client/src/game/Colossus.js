@@ -6,16 +6,25 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js"
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 
 export class Colossus {
-  constructor(scene, alturaEm, x = 0, z = 14) {
+  constructor(
+    scene,
+    alturaEm,
+    x = 0,
+    z = 14,
+    collisionSystem = null
+  ) {
     this.scene = scene;
     this.alturaEm = alturaEm;
+    this.collisionSystem = collisionSystem;
 
-    // Vida e fases
+    this.raioColisao = 2.2;
+
+    // Vida e fases.
     this.vidaMaxima = 1200;
     this.vida = this.vidaMaxima;
     this.fase = 1;
 
-    // Inteligência
+    // Inteligência.
     this.velocidade = 2.5;
     this.velocidadeFase2 = 4.2;
     this.danoAtaque = 12;
@@ -24,7 +33,7 @@ export class Colossus {
     this.raioPerseguicao = 32;
     this.distanciaAtaque = 9;
 
-    // Controle de ataque
+    // Controle de ataque.
     this.ataqueAtual = "nenhum";
     this.atacando = false;
     this.preparandoAtaque = false;
@@ -38,17 +47,17 @@ export class Colossus {
     this.duracaoExecucao = 0.65;
     this.duracaoRecuperacao = 1.3;
 
-    // Despertar
+    // Despertar.
     this.desppertando = true;
     this.despertando = true;
     this.tempoDespertar = 0;
     this.duracaoDespertar = 2.5;
 
-    // Movimento
+    // Movimento.
     this.velocidadeRotacao = 2.5;
     this.direcaoMovimento = Vector3.Zero();
 
-    // Estado
+    // Estado.
     this.derrotado = false;
     this.tempoAnimacao = 0;
 
@@ -58,13 +67,30 @@ export class Colossus {
   }
 
   _criarRaiz(x, z) {
-    this.root = new TransformNode("AzhKhar_Root", this.scene);
+    this.root = new TransformNode(
+      "AzhKhar_Root",
+      this.scene
+    );
 
     this.root.position.set(
       x,
       this.alturaEm(x, z),
       z
     );
+
+    // Não nascer sobreposto a colunas/obstáculos: a posição
+    // padrão (0, 14) fica encostada na coluna em (0, 13).
+    if (this.collisionSystem) {
+      this.collisionSystem.resolver(
+        this.root.position,
+        this.raioColisao
+      );
+
+      this.root.position.y = this.alturaEm(
+        this.root.position.x,
+        this.root.position.z
+      );
+    }
 
     this.root.scaling.setAll(2.5);
   }
@@ -76,15 +102,11 @@ export class Colossus {
     );
 
     this.materialCorpo.diffuseColor = new Color3(
-      0.27,
-      0.25,
-      0.22
+      0.27, 0.25, 0.22
     );
 
     this.materialCorpo.specularColor = new Color3(
-      0.12,
-      0.12,
-      0.12
+      0.12, 0.12, 0.12
     );
 
     this.materialPedra = new StandardMaterial(
@@ -93,9 +115,7 @@ export class Colossus {
     );
 
     this.materialPedra.diffuseColor = new Color3(
-      0.16,
-      0.17,
-      0.17
+      0.16, 0.17, 0.17
     );
 
     this.materialEnergia = new StandardMaterial(
@@ -104,15 +124,11 @@ export class Colossus {
     );
 
     this.materialEnergia.diffuseColor = new Color3(
-      0.8,
-      0.12,
-      0.04
+      0.8, 0.12, 0.04
     );
 
     this.materialEnergia.emissiveColor = new Color3(
-      0.55,
-      0.04,
-      0.01
+      0.55, 0.04, 0.01
     );
 
     this.materialOlhos = new StandardMaterial(
@@ -121,15 +137,11 @@ export class Colossus {
     );
 
     this.materialOlhos.diffuseColor = new Color3(
-      1,
-      0.12,
-      0.02
+      1, 0.12, 0.02
     );
 
     this.materialOlhos.emissiveColor = new Color3(
-      0.9,
-      0.08,
-      0.01
+      0.9, 0.08, 0.01
     );
   }
 
@@ -185,7 +197,7 @@ export class Colossus {
   }
 
   _criarCorpo() {
-    // Pernas
+    // Pernas.
     this.pernaEsquerda = this._criarPeca(
       "AzhKhar_Perna_Esquerda",
       new Vector3(1.15, 3.2, 1.25),
@@ -200,7 +212,7 @@ export class Colossus {
       this.materialPedra
     );
 
-    // Pés
+    // Pés.
     this._criarPeca(
       "AzhKhar_Pe_Esquerdo",
       new Vector3(1.6, 0.65, 2),
@@ -215,7 +227,7 @@ export class Colossus {
       this.materialCorpo
     );
 
-    // Tronco
+    // Tronco.
     this.tronco = this._criarPeca(
       "AzhKhar_Tronco",
       new Vector3(3.4, 3.6, 1.8),
@@ -223,7 +235,7 @@ export class Colossus {
       this.materialCorpo
     );
 
-    // Peitoral
+    // Peitoral.
     this._criarPeca(
       "AzhKhar_Peitoral",
       new Vector3(2.7, 2.2, 0.35),
@@ -231,7 +243,7 @@ export class Colossus {
       this.materialPedra
     );
 
-    // Cabeça
+    // Cabeça.
     this._criarPeca(
       "AzhKhar_Cabeca",
       new Vector3(1.7, 1.7, 1.5),
@@ -240,7 +252,7 @@ export class Colossus {
       "sphere"
     );
 
-    // Olhos
+    // Olhos.
     this._criarPeca(
       "AzhKhar_Olho_Esquerdo",
       new Vector3(0.22, 0.22, 0.12),
@@ -257,7 +269,7 @@ export class Colossus {
       "sphere"
     );
 
-    // Ombros
+    // Ombros.
     this._criarPeca(
       "AzhKhar_Ombro_Esquerdo",
       new Vector3(1.8, 1.6, 1.8),
@@ -274,7 +286,7 @@ export class Colossus {
       "sphere"
     );
 
-    // Braços
+    // Braços.
     this.bracoEsquerdo = new TransformNode(
       "AzhKhar_Braco_Esquerdo",
       this.scene
@@ -291,17 +303,10 @@ export class Colossus {
     this.bracoDireito.parent = this.root;
     this.bracoDireito.position.set(2.1, 5.4, 0);
 
-    this._criarBraco(
-      this.bracoEsquerdo,
-      "Esquerdo"
-    );
+    this._criarBraco(this.bracoEsquerdo, "Esquerdo");
+    this._criarBraco(this.bracoDireito, "Direito");
 
-    this._criarBraco(
-      this.bracoDireito,
-      "Direito"
-    );
-
-    // Marcas de energia no peito
+    // Marcas de energia.
     this.marcasEnergia = [];
 
     for (let i = 0; i < 3; i++) {
@@ -373,8 +378,7 @@ export class Colossus {
       this.tempoDespertar / this.duracaoDespertar
     );
 
-    this.root.rotation.x =
-      (1 - progresso) * 0.08;
+    this.root.rotation.x = (1 - progresso) * 0.08;
 
     if (progresso >= 1) {
       this.desppertando = false;
@@ -392,11 +396,8 @@ export class Colossus {
     this.danoAtaque = this.danoFase2;
     this.intervaloAtaque = 1.9;
 
-    // Intensifica visualmente as marcas de energia.
     this.materialEnergia.emissiveColor = new Color3(
-      1,
-      0.12,
-      0.01
+      1, 0.12, 0.01
     );
 
     this.marcasEnergia.forEach((marca) => {
@@ -479,15 +480,24 @@ export class Colossus {
       !this.preparandoAtaque &&
       !this.recuperando
     ) {
-      const movimento = this.velocidade * delta;
+      const movimento = direcao.scale(
+        this.velocidade * delta
+      );
 
-      posicao.x += direcao.x * movimento;
-      posicao.z += direcao.z * movimento;
+      if (this.collisionSystem) {
+        this.collisionSystem.deslocar(
+          this.root,
+          movimento,
+          this.raioColisao
+        );
+      } else {
+        posicao.addInPlace(movimento);
+      }
     }
 
     this.root.position.y = this.alturaEm(
-      posicao.x,
-      posicao.z
+      this.root.position.x,
+      this.root.position.z
     );
   }
 
@@ -530,8 +540,6 @@ export class Colossus {
         )
       );
 
-      // O dano só acontece se o jogador ainda estiver
-      // dentro da região de alcance no momento do impacto.
       if (distancia <= this.distanciaAtaque + 1.5) {
         if (typeof jogador.receberDano === "function") {
           jogador.receberDano(this.danoAtaque);
@@ -595,7 +603,8 @@ export class Colossus {
       this.bracoDireito.rotation.x = 0;
       this.bracoEsquerdo.rotation.x = 0;
 
-      this.intervaloAtaque = this.fase === 2 ? 1.9 : 2.8;
+      this.intervaloAtaque =
+        this.fase === 2 ? 1.9 : 2.8;
     }
   }
 

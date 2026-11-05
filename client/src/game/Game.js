@@ -1,4 +1,3 @@
-
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { ImageProcessingConfiguration } from "@babylonjs/core/Materials/imageProcessingConfiguration.js";
@@ -10,6 +9,7 @@ import { Colossus } from "./Colossus.js";
 import { CombatSystem } from "./CombatSystem.js";
 import { WeaponSystem } from "./WeaponSystem.js";
 import { DodgeSystem } from "./DodgeSystem.js";
+import { CollisionSystem } from "./CollisionSystem.js";
 
 export class Game {
   constructor(canvas, engine = null) {
@@ -22,6 +22,12 @@ export class Game {
 
     this.world = new World(this.scene);
 
+    // Um único sistema de colisão, compartilhado pelo jogador,
+    // pela esquiva e pelo colosso.
+    this.collisionSystem = new CollisionSystem(
+      this.world.obstaculos
+    );
+
     this.cameraController = new CameraController(
       this.scene,
       this.canvas
@@ -29,9 +35,11 @@ export class Game {
 
     this.player = new Player(
       this.scene,
-      this.world.alturaEm
+      this.world.alturaEm,
+      this.collisionSystem
     );
 
+    // A esquiva usa o collisionSystem do próprio jogador.
     this.dodgeSystem = new DodgeSystem(this.player);
 
     this.weaponSystem = new WeaponSystem(
@@ -43,7 +51,8 @@ export class Game {
       this.scene,
       this.world.alturaEm,
       0,
-      14
+      14,
+      this.collisionSystem
     );
 
     this.combat = new CombatSystem(
@@ -92,7 +101,6 @@ export class Game {
         );
 
         this.dodgeSystem.atualizar(delta);
-
       }
 
       this.colossus.atualizar(delta, this.player);
@@ -131,5 +139,4 @@ export class Game {
     this.scene.dispose();
     this.engine.dispose();
   }
-
 }
